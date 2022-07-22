@@ -1,9 +1,8 @@
-from datetime import datetime
+from datetime import datetime #leave this as is
 import io
 import os
 import pickle
 import time
-
 from flask import Flask, request, render_template, send_from_directory, Response
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -11,19 +10,26 @@ import numpy as np
 import pandas as pd
 import requests
 
+#not uploaded due to security
 from api_keys import weather_api_key, ip_geolocate, google_key
 from app_values import weather_codes
 
+#initalize app
 app = Flask(__name__)
+
+#load prediction model
 pipe = pickle.load(open('model/pipe.pkl', 'rb'))
+
+#Load in data
 df1 = pd.read_csv('data/poke.csv')
 
-# adding favicon
+#adding icons
 @app.route('/poke.ico')
 def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static', 'images'),
                                'poke.ico', mimetype='image/png')
 
+#get weather report
 def weather(lat,long):
     ''' Return weather based on Lat and Long '''
     base_url = "http://api.openweathermap.org/data/2.5/weather?"
@@ -35,6 +41,7 @@ def weather(lat,long):
     weather_id = x['weather'][0]['id']
     return [ weather_codes[f'{weather_id}'] , weather_temp ]
 
+#determin location from ip (rebuild this for smartphone usage for better accuracy)
 def get_my_ip():
     ''' Return location and timezone offset based on ip '''
     # if run locally replace ip as string
@@ -54,6 +61,7 @@ def get_my_ip():
     local_timezone = x['timezone_offset']
     return [city, latitude_ip, longitude_ip, local_timezone]
 
+#get place type from latatude longitute eg urban
 def scrape_place(lat, long):
     ''' Return google place types within 100m of Lat and Long '''
     base_url = "https://maps.googleapis.com/maps/api/place/search/json?location="
@@ -68,6 +76,7 @@ def scrape_place(lat, long):
             types.add(h)
     return list(types)
 
+#main prediction function
 def predict_poke(latitude=0,longitude=0, local_timezone=0):
     ''' Return dictionary of pokemon id's and names '''
     if latitude==0 and longitude==0 and local_timezone==0:
@@ -103,37 +112,44 @@ def predict_poke(latitude=0,longitude=0, local_timezone=0):
     out2 = out.reset_index(drop=True).to_dict(orient='dict')
     return out2
 
+#load homepage
 @app.route('/', methods=['POST','GET'])
 def index():
     proba_dict = predict_poke() 
     return render_template('index.html',  gif=proba_dict['id'], names=proba_dict['pokemon'])
 
+#webpage: move north
 @app.route('/north', methods=['POST','GET'])
 def north():
     city, latitude, longitude, local_timezone = get_my_ip()
     proba_dict = predict_poke(latitude+.06, longitude, local_timezone)
     return render_template('index.html',  gif=proba_dict['id'], names=proba_dict['pokemon'])
 
+#webpage: move south
 @app.route('/south', methods=['POST','GET'])
 def south():
     city, latitude, longitude, local_timezone = get_my_ip()
     proba_dict = predict_poke(latitude-.06, longitude, local_timezone)
     return render_template('index.html',  gif=proba_dict['id'], names=proba_dict['pokemon'])
 
+#webpage: move east
 @app.route('/east', methods=['POST','GET'])
 def east():
     city, latitude, longitude, local_timezone = get_my_ip()
     proba_dict = predict_poke(latitude, longitude-.06, local_timezone)
     return render_template('index.html',  gif=proba_dict['id'], names=proba_dict['pokemon'])
 
+#webpafe: move west
 @app.route('/west', methods=['POST','GET'])
 def west():
     city, latitude, longitude, local_timezone = get_my_ip()
     proba_dict = predict_poke(latitude, longitude+.06, local_timezone)
     return render_template('index.html',  gif=proba_dict['id'], names=proba_dict['pokemon'])
 
-
+#webpage: results
 @app.route('/result', methods=['POST','GET'])
+
+#predict from manual entry of data
 def manual_result():
     if request.method == 'POST':
         result = request.form
@@ -165,6 +181,7 @@ def manual_result():
     proba_dict = out.reset_index(drop=True).to_dict(orient='dict')
     return render_template('index.html',  gif=proba_dict['id'], names=proba_dict['pokemon'])
 
+#webpage: display a graph of the data
 @app.route('/graph', methods=['POST','GET'])
 def graph_poke(latitude=0,longitude=0, local_timezone=0):
     ''' Return graph of pokemon probs '''
@@ -207,12 +224,11 @@ def graph_poke(latitude=0,longitude=0, local_timezone=0):
     FigureCanvas(fig).print_png(output)
     return Response(output.getvalue(), mimetype='image/png')
 
-
-
-
+#webpage: manual entry of data
 @app.route('/manual')
 def manual_entry():
     return render_template('manual.html')
 
+#run the webapp
 if __name__ == '__main__':
     app.run(debug=True) 

@@ -5,6 +5,9 @@ import json
 from sklearn_pandas import DataFrameMapper, CategoricalImputer, FunctionTransformer
 from poke_values import google_types
 
+#this is not a working part of the app, just expanding on the data given.
+
+#load cvs data file, setup in pandas dataframe
 df = pd.read_csv('data/pokemon_go.csv')
 df['city'].unique()
 df = df[df['city']=='Toronto']
@@ -12,9 +15,11 @@ df.reset_index(inplace=True)
 df.drop('index',axis=1, inplace=True)
 df['google_types'] = ''
 
+#quick exploration of data
 df
 len(google_types)
 
+#get a google location type from latitude/longitude.
 def scrape_place(lat, long):
     base_url = "https://maps.googleapis.com/maps/api/place/search/json?location="
     key = ""
@@ -29,32 +34,41 @@ def scrape_place(lat, long):
             if h in google_types:
                 types.add(h)
     return list(types)
+
+#testing above   
 google_types
 place_ = scrape_place(43.770318,-79.212555)
 place_
 
-
+#make a dataframe transformer for location to location type
 def list_place(dfx,i):
     x = dfx.latitude[i]
     y = dfx.longitude[i]
     df['google_types'][i] = scrape_place(x, y)
 
 
-
+#transform values in dataframe
 list_place(df,1)
 for rows in range(len(df)):
     list_place(df,rows)
+
+#view results
 df
 df.iloc[[3581]]
 df.shape
 
+#fix value back to row
 len(df)
 for row in range(len(df)):
     list_place(df,row)
 df
 
-
+#write to new cvs file
 df.to_csv('scraped_df2.csv', index_label=False)
+
+
+
+#old workings 
 
 # pd.read_csv('scraped_df.csv')
 #
